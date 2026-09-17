@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Révisions M1 — BD Avancées : JSON Schema & XML/XSD</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #171a23; --panel2: #1e2230; --border: #2a2f3f;
+    --text: #e8eaf2; --muted: #9aa3b8; --accent: #7c6cf0; --accent2: #4ec9a8;
+    --warn: #f0a35e; --err: #f0676e; --ok: #4ec9a8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  header { background: linear-gradient(135deg, #1a1630, #0f1117); border-bottom: 1px solid var(--border); padding: 20px 24px; position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 1.25rem; }
+  header p { color: var(--muted); font-size: .85rem; margin-top: 4px; }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  nav button { background: var(--panel2); color: var(--muted); border: 1px solid var(--border); padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: .9rem; transition: .15s; }
+  nav button:hover { color: var(--text); border-color: var(--accent); }
+  nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  main { max-width: 960px; margin: 0 auto; padding: 28px 20px 80px; }
+  section.page { display: none; animation: fade .25s ease; }
+  section.page.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  h2 { font-size: 1.5rem; margin: 24px 0 8px; }
+  h3 { font-size: 1.1rem; margin: 20px 0 8px; color: var(--accent2); }
+  p { line-height: 1.6; margin: 8px 0; color: var(--text); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin: 14px 0; }
+  .card.warn { border-left: 4px solid var(--warn); }
+  .card.err { border-left: 4px solid var(--err); }
+  .card.ok { border-left: 4px solid var(--ok); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin: 14px 0; }
+  pre { background: #0b0d13; border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-x: auto; font-size: .85rem; line-height: 1.5; margin: 10px 0; }
+  code { font-family: "Cascadia Code", Consolas, monospace; }
+  code.inline { background: var(--panel2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; font-size: .85em; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .9rem; }
+  th, td { border: 1px solid var(--border); padding: 10px 12px; text-align: left; }
+  th { background: var(--panel2); }
+  .tag { display: inline-block; background: var(--panel2); border: 1px solid var(--border); border-radius: 20px; padding: 3px 12px; font-size: .8rem; margin: 3px 4px 3px 0; color: var(--muted); }
+  .tag.g { color: var(--ok); border-color: var(--ok); }
+  .tag.r { color: var(--err); border-color: var(--err); }
+  .tag.o { color: var(--warn); border-color: var(--warn); }
+  ul, ol { margin: 8px 0 8px 22px; line-height: 1.7; }
+  li { margin: 4px 0; }
+  .tip { color: var(--muted); font-size: .85rem; font-style: italic; }
+
+  /* Quiz */
+  .quiz-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .quiz-progress .bar { flex: 1; height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden; }
+  .quiz-progress .bar > div { height: 100%; background: var(--accent); width: 0%; transition: .3s; }
+  .q { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin: 12px 0; }
+  .q .stem { font-weight: 600; margin-bottom: 12px; }
+  .q .opts { display: flex; flex-direction: column; gap: 8px; }
+  .q .opt { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; cursor: pointer; transition: .15s; }
+  .q .opt:hover:not(.done) { border-color: var(--accent); }
+  .q .opt.sel { border-color: var(--accent); background: #26233f; }
+  .q .opt.correct { border-color: var(--ok); background: #14352b; }
+  .q .opt.wrong { border-color: var(--err); background: #3a1d20; }
+  .q .opt:not(.done) { cursor: pointer; }
+  .q .opt.done { cursor: default; }
+  .q .explain { display: none; margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--panel2); font-size: .9rem; line-height: 1.6; }
+  .q .explain.show { display: block; }
+  .score { text-align: center; font-size: 1.1rem; margin: 8px 0; }
+
+  /* Flashcards */
+  .fc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 16px; }
+  .fc { perspective: 1000px; height: 180px; cursor: pointer; }
+  .fc-inner { position: relative; width: 100%; height: 100%; transition: transform .5s; transform-style: preserve-3d; }
+  .fc.flipped .fc-inner { transform: rotateY(180deg); }
+  .fc-face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 14px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px; text-align: center; font-size: .95rem; }
+  .fc-front { background: var(--panel); border: 1px solid var(--border); }
+  .fc-back { background: #232040; border: 1px solid var(--accent); transform: rotateY(180deg); }
+  .fc-back small { color: var(--muted); margin-top: 6px; }
+
+  .btn { background: var(--accent); border: none; color: #fff; padding: 10px 18px; border-radius: 10px; cursor: pointer; font-size: .95rem; margin: 8px 8px 8px 0; }
+  .btn.ghost { background: var(--panel2); border: 1px solid var(--border); color: var(--text); }
+  .btn:hover { filter: brightness(1.15); }
+  .footnote { margin-top: 30px; color: var(--muted); font-size: .8rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📚 Révisions M1 — Bases de données avancées</h1>
+  <p>JSON Schema · XML · Espaces de noms · XSD — fiche interactive</p>
+  <nav>
+    <button data-page="home" class="active">🏠 Accueil</button>
+    <button data-page="json">⚡ JSON Schema</button>
+    <button data-page="xml">🧱 XML</button>
+    <button data-page="ns">🏷️ Espaces de noms</button>
+    <button data-page="pièges">⚠️ Pièges</button>
+    <button data-page="quiz">🎯 Quiz</button>
+    <button data-page="flash">🃏 Flashcards</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ======================= ACCUEIL ======================= -->
+<section class="page active" id="page-home">
+  <h2>Le sujet en une phrase</h2>
+  <p>Deux cours, une seule idée : <strong>définir un contrat de données, le valider aux frontières du système, et le durcir contre les données hostiles.</strong></p>
+  <div class="grid">
+    <div class="card">
+      <h3>⚡ JSON Schema</h3>
+      <p>Un vocabulaire déclaratif (lui-même écrit en JSON) pour décrire et valider la structure de documents JSON.</p>
+      <p><span class="tag g">validation</span><span class="tag g">documentation</span><span class="tag g">génération</span></p>
+      <p class="tip">Dialecte du cours : 2020-12 (celui d'OpenAPI 3.1)</p>
+    </div>
+    <div class="card">
+      <h3>🧱 XML / XSD</h3>
+      <p>Un méta-langage pour créer vos propres langages de balisage. XSD vérifie la conformité à un vocabulaire métier.</p>
+      <p><span class="tag g">arbre</span><span class="tag g">bien formé ≠ valide</span><span class="tag g">namespaces</span></p>
+      <p class="tip">XML vit encore : B2B, finance, SOAP, docx (oui, docx = XML zippé)</p>
+    </div>
+  </div>
+  <div class="card warn">
+    <h3>🚨 Le principe d'architecture à citer en examen</h3>
+    <p>« Valider <strong>aux frontières</strong> (API, files de messages, fichiers) et <strong>échouer tôt, explicitement</strong>. » Une erreur détectée tard se transforme en NullPointerException loin de sa cause.</p>
+  </div>
+  <h2>Plan des cours</h2>
+  <table>
+    <tr><th>JSON Schema</th><th>XML / XSD</th></tr>
+    <tr><td>1. Contexte, contrat de données</td><td>1. Le langage XML (bien formé)</td></tr>
+    <tr><td>2. Fondamentaux (types, contraintes)</td><td>2. Espaces de noms (xmlns)</td></tr>
+    <tr><td>3. Structuration ($defs, $ref, composition)</td><td>3. DTD → XSD (types, facettes)</td></tr>
+    <tr><td>4. Avancé (unevaluated*, récursivité)</td><td>4. XSD avancé (héritage, clés)</td></tr>
+    <tr><td>5. Outillage (validateurs, OpenAPI, CI/CD)</td><td>5. Python (lxml, xmlschema, XPath)</td></tr>
+    <tr><td>6. Sécurité (mass assignment, ReDoS)</td><td>6. Sécurité (XXE, DoS)</td></tr>
+  </table>
+  <p class="tip">💡 Clique sur les onglets du haut. Le Quiz et les Flashcards sont le moyen le plus rapide de tout retenir.</p>
+</section>
+
+<!-- ======================= JSON SCHEMA ======================= -->
+<section class="page" id="page-json">
+  <h2>JSON vs JSON Schema</h2>
+  <p><strong>JSON</strong> (RFC 8259) : format d'échange texte. 6 types : <code class="inline">object, array, string, number, boolean, null</code>. Pas de commentaires, pas de dates natives, pas d'entiers/flottants distincts.</p>
+  <div class="card err">
+    <p>⚠️ JSON décrit une <strong>syntaxe</strong>, pas une structure attendue : rien n'empêche un champ manquant ou un mauvais type.</p>
+  </div>
+  <p><strong>JSON Schema</strong> : le contrat vérifiable. 3 rôles :</p>
+  <ul>
+    <li><strong>Validation</strong> — rejeter les documents non conformes</li>
+    <li><strong>Documentation</strong> — lisible par les humains et les outils</li>
+    <li><strong>Génération</strong> — code, formulaires, données de test, complétion IDE</li>
+  </ul>
+
+  <h2>Anatomie d'un schéma</h2>
+<pre><code>{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://exemple.fr/schemas/produit.schema.json",
+  "title": "Produit",
+  "description": "Produit du catalogue",
+  "type": "object"
+}</code></pre>
+  <ul>
+    <li><code class="inline">$schema</code> — dialecte utilisé (toujours l'expliciter)</li>
+    <li><code class="inline">$id</code> — URI identifiant le schéma (base de résolution des $ref)</li>
+    <li><code class="inline">title</code> / <code class="inline">description</code> — documentation</li>
+    <li><code class="inline">type</code> — type attendu à la racine. Un schéma peut être un booléen : <code class="inline">true</code> = tout accepter, <code class="inline">false</code> = tout rejeter.</li>
+  </ul>
+  <p class="tip">Convention de nommage : <code>*.schema.json</code> — et un <code>$id</code> stable dès que le schéma est partagé.</p>
+
+  <h2>Le mot-clé type</h2>
+  <ul>
+    <li><code class="inline">integer</code> n'est <strong>pas</strong> un type JSON : c'est une contrainte ajoutée par JSON Schema (ex. <code class="inline">1.0</code> est accepté comme entier)</li>
+    <li><code class="inline">type</code> accepte un tableau : <code class="inline">{ "type": ["string", "null"] }</code> = nullable</li>
+    <li>Sans <code class="inline">type</code>, le schéma accepte <strong>n'importe quoi</strong></li>
+  </ul>
+
+  <h2>Chaînes de caractères</h2>
+<pre><code>{
+  "type": "string",
+  "minLength": 5,
+  "maxLength": 5,
+  "pattern": "^[0-9]{5}$"
+}</code></pre>
+  <ul>
+    <li><code class="inline">minLength / maxLength</code> — longueur</li>
+    <li><code class="inline">pattern</code> — regex ECMA-262, <strong>non ancrée par défaut</strong> : il faut <code class="inline">^</code> et <code class="inline">$</code> explicitement</li>
+  </ul>
+  <div class="card err"><p>⚠️ Sans ancrage, <code class="inline">[0-9]{5}</code> valide aussi <code class="inline">"x87000y"</code>. Toujours borner <code class="inline">maxLength</code> sur les entrées externes.</p></div>
+
+  <h2>Nombres</h2>
+<pre><code>{
+  "type": "number",
+  "exclusiveMinimum": 0,
+  "maximum": 20,
+  "multipleOf": 0.5
+}</code></pre>
+  <p><code class="inline">minimum/maximum</code> = bornes inclusives · <code class="inline">exclusiveMinimum/exclusiveMaximum</code> = exclusives · <code class="inline">multipleOf</code> = granularité.</p>
+  <p class="tip">Un montant, un âge ou une quantité sans bornes = erreur latente.</p>
+
+  <h2>enum et const</h2>
+<pre><code>{ "statut": { "enum": ["draft", "recommandation", "archive"] } }
+{ "version": { "const": 2 } }</code></pre>
+  <ul>
+    <li><code class="inline">enum</code> — valeur ∈ liste fermée (≥ 1 élément)</li>
+    <li><code class="inline">const</code> — enum à une seule valeur ; comparaison structurelle stricte (égalité profonde)</li>
+    <li><code class="inline">const</code> sert de <strong>discriminant</strong> dans les unions <code class="inline">oneOf</code></li>
+  </ul>
+
+  <h2>Objets : properties vs required</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>properties</h3>
+      <p>Associe un sous-schéma à chaque clé. <strong>Ne rend PAS les clés obligatoires !</strong> Une clé absente est simplement... non validée.</p>
+      <pre><code>{} → valide !</code></pre>
+    </div>
+    <div class="card">
+      <h3>required</h3>
+      <p>Tableau de clés qui doivent être présentes. Présence <strong>≠</strong> non-nullité : <code class="inline">"nom": null</code> satisfait <code class="inline">required</code> mais pas <code class="inline">type: string</code>.</p>
+      <pre><code>{ "nom": null } → rejeté si type: string</code></pre>
+    </div>
+  </div>
+  <p class="tip">Formule à retenir : <strong>« properties décrit, required impose. »</strong></p>
+
+  <h2>additionalProperties</h2>
+<pre><code>{
+  "type": "object",
+  "properties": { "nom": { "type": "string" } },
+  "required": ["nom"],
+  "additionalProperties": false
+}</code></pre>
+  <ul>
+    <li>Défaut : <code class="inline">true</code> — toute clé inconnue est acceptée</li>
+    <li><code class="inline">false</code> — schéma fermé : clés inconnues rejetées</li>
+    <li>Ou un sous-schéma : <code class="inline">{ "additionalProperties": { "type": "string" } }</code></li>
+  </ul>
+  <div class="card err"><p>🔒 Enjeu de <strong>sécurité majeur</strong> : mass assignment. Ex. <code class="inline">{"nom": "Ada", "isAdmin": true}</code> passe si le schéma est ouvert !</p></div>
+
+  <h2>Tableaux</h2>
+<pre><code>{
+  "type": "array",
+  "items": { "type": "string", "minLength": 1 },
+  "minItems": 1,
+  "maxItems": 10,
+  "uniqueItems": true
+}</code></pre>
+  <ul>
+    <li><code class="inline">items</code> — schéma appliqué à chaque élément</li>
+    <li><code class="inline">minItems / maxItems</code> — taille ; <strong>borner maxItems</strong> sur toute entrée externe (vecteur de DoS)</li>
+    <li><code class="inline">uniqueItems</code> — pas de doublons (égalité profonde)</li>
+    <li><code class="inline">contains</code> + <code class="inline">minContains/maxContains</code> — au moins n éléments conformes</li>
+  </ul>
+
+  <h2>Historique des dialectes</h2>
+  <table>
+    <tr><th>Dialecte</th><th>Année</th><th>Points marquants</th></tr>
+    <tr><td>draft-04</td><td>2013</td><td>Très répandu (outillage ancien, Swagger 2.0)</td></tr>
+    <tr><td>draft-06 / 07</td><td>2017-18</td><td>const, if/then/else — encore le plus supporté</td></tr>
+    <tr><td>2019-09</td><td>2019</td><td>$defs, unevaluatedProperties, vocabulaires</td></tr>
+    <tr><td><strong>2020-12</strong></td><td>2020</td><td><strong>prefixItems, $dynamicRef — dialecte d'OpenAPI 3.1 (cours)</strong></td></tr>
+  </table>
+  <p class="tip">Vérifier le support réel du validateur avant de choisir un dialecte.</p>
+
+  <h2>Cas d'usage</h2>
+  <p><span class="tag">API REST / OpenAPI 3.1</span><span class="tag">Kafka / RabbitMQ (AsyncAPI)</span><span class="tag">Config YAML/JSON (schemastore.org)</span><span class="tag">Pipelines ETL (quarantaine des rejets)</span><span class="tag">MongoDB $jsonSchema</span><span class="tag">Formulaires (génération d'UI)</span></p>
+  <p class="tip">Même schéma, plusieurs frontières : un seul contrat réutilisé partout limite les problèmes.</p>
+</section>
+
+<!-- ======================= XML ======================= -->
+<section class="page" id="page-xml">
+  <h2>Qu'est-ce que XML ?</h2>
+  <p><strong>eXtensible Markup Language</strong> — recommandation W3C (1998), simplifiant SGML. Un <strong>méta-langage</strong> : il définit comment créer vos propres langages de balisage.</p>
+  <p>Format texte, auto-descriptif, indépendant de la langue et de la plateforme. Écosystème : XSD, XPath, XSLT, XQuery, SOAP, XHTML, SVG…</p>
+
+  <h2>Anatomie d'un document</h2>
+<pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;   &lt;!-- prologue --&gt;
+&lt;etudiants&gt;                             &lt;!-- racine (unique) --&gt;
+  &lt;etudiant num="E42"&gt;                  &lt;!-- élément + attribut --&gt;
+    &lt;nom&gt;Ada&lt;/nom&gt;                      &lt;!-- élément + texte --&gt;
+    &lt;note&gt;15.5&lt;/note&gt;
+  &lt;/etudiant&gt;
+&lt;/etudiants&gt;</code></pre>
+  <div class="card"><p>🌳 <strong>Un document XML EST un arbre</strong> : nœuds, parents, enfants — un seul parent par nœud. Pensons arbre, pas contenu textuel.</p></div>
+
+  <h2>Règles de bonne formation (well-formed)</h2>
+  <ol>
+    <li>Un unique élément racine</li>
+    <li>Toute balise ouverte est fermée : <code class="inline">&lt;a&gt;...&lt;/a&gt;</code> ou auto-fermante <code class="inline">&lt;a/&gt;</code></li>
+    <li>Imbrication stricte : <code class="inline">&lt;b&gt;&lt;i&gt;texte&lt;/i&gt;&lt;/b&gt;</code>, jamais <code class="inline">&lt;b&gt;&lt;i&gt;...&lt;/b&gt;&lt;/i&gt;</code></li>
+    <li>Valeurs d'attributs entre guillemets ou apostrophes</li>
+    <li>Un attribut présent au plus une fois par élément</li>
+    <li>Sensible à la casse : <code class="inline">&lt;Nom&gt; ≠ &lt;nom&gt;</code></li>
+  </ol>
+  <div class="card err"><p>🚫 Un document mal formé est <strong>rejeté en bloc</strong> : pas de mode dégradé (contrairement à HTML).</p></div>
+
+  <h2>Attribut ou élément ?</h2>
+  <table>
+    <tr><th>Attribut</th><th>Élément</th></tr>
+    <tr><td>Métadonnée simple, atomique</td><td>Donnée métier, structurée, texte long</td></tr>
+    <tr><td>Non répétable</td><td>Répétition possible</td></tr>
+    <tr><td>Pas de structure ni d'ordre</td><td>Évolutif</td></tr>
+  </table>
+  <p class="tip">Règle pragmatique : <strong>l'attribut qualifie, l'élément contient.</strong> En cas de doute → élément.</p>
+
+  <h2>Entités et CDATA</h2>
+  <p>5 entités prédéfinies : <code class="inline">&amp;lt;</code> (&lt;) · <code class="inline">&amp;gt;</code> (&gt;) · <code class="inline">&amp;amp;</code> (&amp;) · <code class="inline">&amp;quot;</code> (") · <code class="inline">&amp;apos;</code> (')</p>
+  <p><code class="inline">&lt;</code> et <code class="inline">&amp;</code> sont <strong>toujours interdits</strong> dans le texte. Références de caractères : <code class="inline">&amp;#233;</code> ou <code class="inline">&amp;#xE9;</code> pour é.</p>
+<pre><code>&lt;script&gt;&lt;![CDATA[
+if (a &lt; b &amp;&amp; c &gt; d) { alert("brut, non analysé"); }
+]]&gt;&lt;/script&gt;</code></pre>
+  <p class="tip">CDATA = bloc de texte non analysé, pratique pour du code ou du HTML embarqué. Les commentaires (<code class="inline">&lt;!-- --&gt;</code>) ne sont pas des données : certains analyseurs les ignorent.</p>
+
+  <h2>Encodage</h2>
+  <ul>
+    <li>UTF-8 par défaut et recommandé, déclaré explicitement</li>
+    <li>Erreur classique : fichier en ISO-8859-1 déclaré UTF-8 (ou l'inverse) → caractères corrompus</li>
+    <li>BOM UTF-8 toléré ; UTF-16 détecté via le BOM</li>
+    <li><code class="inline">standalone="yes"</code> : pas de dépendance externe</li>
+  </ul>
+  <div class="card warn"><p>⚠️ L'encodage déclaré doit refléter l'encodage <strong>réel des octets</strong> : source n°1 d'erreurs liées aux accents.</p></div>
+
+  <h2>Bien formé vs valide</h2>
+  <table>
+    <tr><th></th><th>Bien formé</th><th>Valide</th></tr>
+    <tr><td>Vérifie</td><td>Syntaxe XML universelle</td><td>Conformité à UN schéma (DTD, XSD…)</td></tr>
+    <tr><td>Référentiel</td><td>La spécification XML</td><td>Le vocabulaire métier</td></tr>
+    <tr><td>Qui</td><td>Tout analyseur XML, toujours</td><td>Un validateur, si demandé</td></tr>
+  </table>
+  <div class="card ok"><p>✅ <strong>Valide implique bien formé, pas l'inverse. La validation est un choix.</strong></p></div>
+
+  <h2>Où XML vit encore</h2>
+  <p><span class="tag">B2B / EDI (Factur-X, UBL, ISO 20022, HL7)</span><span class="tag">SOAP / WSDL</span><span class="tag">docx, xlsx, pptx, ODF</span><span class="tag">Config (pom.xml, logback.xml)</span><span class="tag">DocBook, TEI, SVG</span><span class="tag">Type XML natif en base de données</span></p>
+  <p class="tip">XML domine là où le contrat est fort et l'écosystème normatif : finance, administration, industrie.</p>
+
+  <h2>XML vs JSON</h2>
+  <table>
+    <tr><th>Critère</th><th>XML</th><th>JSON</th></tr>
+    <tr><td>Verbosité</td><td>Élevée</td><td>Faible</td></tr>
+    <tr><td>Attributs / métadonnées</td><td>Oui</td><td>Non (tout est donnée)</td></tr>
+    <tr><td>Espaces de noms</td><td>Oui, standardisés</td><td>Non</td></tr>
+    <tr><td>Contenu mixte (texte + balises)</td><td>Oui — idéal documents</td><td>Non</td></tr>
+    <tr><td>Validation</td><td>XSD, Schematron</td><td>JSON Schema</td></tr>
+    <tr><td>Chemins</td><td>XPath, XQuery, XSLT</td><td>JSONPath, jq (moins normés)</td></tr>
+    <tr><td>Usage dominant</td><td>Documents, B2B, SOAP</td><td>API REST, config moderne</td></tr>
+  </table>
+  <p class="tip">Données orientées document / contrat normé fort → XML · échanges applicatifs légers → JSON.</p>
+</section>
+
+<!-- ======================= ESPACES DE NOMS ======================= -->
+<section class="page" id="page-ns">
+  <h2>Le problème des collisions</h2>
+  <p>XML encourage à combiner des vocabulaires (SOAP + métier, XHTML + SVG…). Que signifie <code class="inline">&lt;titre&gt;</code> quand deux vocabulaires le définissent ?</p>
+  <pre><code>&lt;bibliotheque&gt;
+  &lt;livre&gt;
+    &lt;titre&gt;Dune&lt;/titre&gt;     &lt;!-- œuvre --&gt;
+    &lt;auteur&gt;
+      &lt;nom&gt;Herbert&lt;/nom&gt;
+      &lt;titre&gt;Dr&lt;/titre&gt;   &lt;!-- civilité ! --&gt;
+    &lt;/auteur&gt;
+  &lt;/livre&gt;
+&lt;/bibliotheque&gt;</code></pre>
+  <p>Solution : <strong>Namespaces in XML (1999)</strong> — qualifier chaque nom par un <strong>URI</strong>. Comme on ne peut pas écrire une URI dans un nom de balise (le « / » est interdit), on utilise un <strong>préfixe</strong> = alias local de l'URI.</p>
+
+  <h2>xmlns : déclaration, préfixes, portée</h2>
+<pre><code>&lt;biblio:livre
+    xmlns:biblio="https://exemple.fr/ns/biblio"
+    xmlns:pers="https://exemple.fr/ns/personne"&gt;
+  &lt;biblio:titre&gt;Dune&lt;/biblio:titre&gt;
+  &lt;pers:titre&gt;Dr&lt;/pers:titre&gt;
+&lt;/biblio:livre&gt;</code></pre>
+  <ul>
+    <li>Nom qualifié = <code class="inline">(URI, nom local)</code></li>
+    <li>L'URI est un <strong>identifiant</strong> : rien n'est téléchargé, il n'a pas à être résolvable</li>
+    <li>Portée : l'élément porteur de la déclaration et ses descendants</li>
+    <li>Le préfixe est un alias local : <strong>seul l'URI compte pour l'égalité</strong> — deux documents avec des préfixes différents mais les mêmes URI sont équivalents</li>
+  </ul>
+
+  <h2>Espace de noms par défaut et attributs</h2>
+<pre><code>&lt;commande xmlns="https://exemple.fr/ns/vente" id="CMD-1"&gt;
+  &lt;ligne sku="ABC"/&gt;
+&lt;/commande&gt;</code></pre>
+  <ul>
+    <li><code class="inline">xmlns="URI"</code> (sans préfixe) = namespace par défaut pour les <strong>éléments</strong> non préfixés</li>
+    <li><code class="inline">xmlns=""</code> annule le namespace par défaut dans un sous-arbre</li>
+    <li><code class="inline">id</code> et <code class="inline">sku</code> n'appartiennent à <strong>aucun</strong> namespace</li>
+  </ul>
+  <div class="card err"><p>⚠️ Piège classique d'examen : <strong>le namespace par défaut ne s'applique jamais aux attributs non préfixés.</strong> Un attribut préfixé (ex. <code class="inline">xsi:type</code>) est, lui, pleinement qualifié.</p></div>
+
+  <h2>Namespaces fréquents</h2>
+  <ul>
+    <li><code class="inline">http://www.w3.org/2001/XMLSchema</code> (xs: ou xsd:) — le langage XSD</li>
+    <li><code class="inline">http://www.w3.org/2001/XMLSchema-instance</code> (xsi:) — attributs côté document (xsi:type, xsi:nil)</li>
+    <li><code class="inline">http://schemas.xmlsoap.org/soap/envelope/</code> — SOAP 1.1</li>
+    <li><code class="inline">http://www.w3.org/1999/XSL/Transform</code> (xsl:) — XSLT</li>
+  </ul>
+  <div class="card warn"><p>⚠️ Piège XPath/DOM : un élément dans un namespace ne correspond pas à son <strong>nom local seul</strong> — il faut lier le préfixe dans l'outil aussi. Convention : URI stable versionnée (…/ns/vente/1.0), contrôlée par l'organisation.</p></div>
+</section>
+
+<!-- ======================= PIÈGES ======================= -->
+<section class="page" id="page-pieges">
+  <h2>Les pièges à graver dans le crâne</h2>
+  <div class="grid">
+    <div class="card err"><p><strong>properties ne rend pas obligatoire.</strong> Une clé absente est simplement non validée. « properties décrit, required impose. »</p></div>
+    <div class="card err"><p><strong>required ≠ non-null.</strong> <code class="inline">"nom": null</code> satisfait required mais pas <code class="inline">type: string</code>.</p></div>
+    <div class="card err"><p><strong>additionalProperties = true par défaut.</strong> Schéma ouvert → mass assignment : <code class="inline">{"isAdmin": true}</code> passe.</p></div>
+    <div class="card err"><p><strong>pattern n'est pas ancré.</strong> Sans <code class="inline">^</code> et <code class="inline">$</code>, <code class="inline">[0-9]{5}</code> valide <code class="inline">"x87000y"</code>.</p></div>
+    <div class="card err"><p><strong>JSON n'a pas de date native</strong> ni de distinction int/float. Pas de commentaires, pas d'entiers séparés des flottants.</p></div>
+    <div class="card err"><p><strong>Sans type, un schéma accepte n'importe quoi.</strong> Toujours le spécifier.</p></div>
+    <div class="card err"><p><strong>Bien formé ≠ valide.</strong> Un document mal formé est rejeté en bloc ; la validation XSD est un choix, pas une contrainte automatique.</p></div>
+    <div class="card err"><p><strong>Namespace par défaut ≠ attributs.</strong> <code class="inline">xmlns="..."</code> qualifie les éléments, jamais les attributs non préfixés.</p></div>
+    <div class="card err"><p><strong>L'URI d'un namespace est un identifiant, pas une URL.</strong> Rien n'est téléchargé, il n'a pas à être résolvable.</p></div>
+    <div class="card err"><p><strong>Borner les entrées externes.</strong> maxLength, maxItems, bornes numériques = protection contre ReDoS et DoS, pas juste de la politesse.</p></div>
+  </div>
+
+  <h2>Règles d'or</h2>
+  <div class="card ok">
+    <p>✅ <strong>Validation aux frontières</strong> (API, files, fichiers) — échouer tôt et explicitement. L'erreur doit être rejetée à la frontière, pas se transformer en NPE au milieu du code.</p>
+  </div>
+  <div class="card ok">
+    <p>✅ <strong>Un contrat utile est exigeant</strong> : requis par défaut, optionnel justifié.</p>
+  </div>
+  <div class="card ok">
+    <p>✅ <strong>Même schéma, plusieurs frontières</strong> : un seul contrat réutilisé partout (API, Kafka, Mongo, config, formulaires) limite les problèmes.</p>
+  </div>
+  <div class="card ok">
+    <p>✅ <strong>L'attribut qualifie, l'élément contient</strong> — en cas de doute, élément (plus évolutif).</p>
+  </div>
+</section>
+
+<!-- ======================= QUIZ ======================= -->
+<section class="page" id="page-quiz">
+  <h2>Quiz — à toi de jouer 🎯</h2>
+  <div class="quiz-progress">
+    <span id="quizCount">0/0</span>
+    <div class="bar"><div id="quizBar"></div></div>
+    <span id="quizScore">Score : 0</span>
+  </div>
+  <div id="quizBox"></div>
+  <button class="btn ghost" id="quizReset" style="display:none">🔄 Recommencer</button>
+</section>
+
+<!-- ======================= FLASHCARDS ======================= -->
+<section class="page" id="page-flash">
+  <h2>Flashcards 🃏</h2>
+  <p class="tip">Clique sur une carte pour la retourner. Reviens-y jusqu'à répondre sans hésiter.</p>
+  <div class="fc-grid" id="fcGrid"></div>
+</section>
+
+<div class="footnote">Fiche de révision M1 — BD avancées · JSON Schema &amp; XML/XSD · générée le 17/09/2026 📝</div>
+</main>
+
+<script>
+/* ---------- Navigation ---------- */
+const navBtns = document.querySelectorAll('nav button');
+navBtns.forEach(b => b.addEventListener('click', () => {
+  navBtns.forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('section.page').forEach(p => p.classList.remove('active'));
+  b.classList.add('active');
+  const page = document.getElementById('page-' + b.dataset.page);
+  page.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}));
+
+/* ---------- Quiz ---------- */
+const quiz = [
+  {
+    q: 'Que vérifie properties ?',
+    opts: ['La présence des clés listées', 'Le type des clés présentes', 'L\'absence de clés inconnues', 'La taille de l\'objet'],
+    a: 1,
+    exp: 'properties associe un sous-schéma aux clés, mais ne rend aucune clé obligatoire — une clé absente n\'est simplement pas validée.'
+  },
+  {
+    q: 'Que vérifie required ?',
+    opts: ['La non-nullité des valeurs', 'La présence des clés', 'Le type des valeurs', 'Le nombre de propriétés'],
+    a: 1,
+    exp: 'required impose la présence des clés. Présence ≠ non-nullité : "nom": null satisfait required mais pas type: string.'
+  },
+  {
+    q: 'Quelle est la valeur par défaut de additionalProperties ?',
+    opts: ['false', 'true', 'null', 'Une erreur de schéma'],
+    a: 1,
+    exp: 'Par défaut, toute clé inconnue est acceptée (true). Le passer à false ferme le schéma — indispensable contre le mass assignment.'
+  },
+  {
+    q: 'Que valide {"type": "integer"} pour l\'instance 1.0 ?',
+    opts: ['Rejeté', 'Accepté', 'Dépend du validateur', 'Erreur de schéma'],
+    a: 1,
+    exp: '1.0 est une valeur entière, donc acceptée par type: integer. integer n\'est pas un type JSON mais une contrainte de valeur.'
+  },
+  {
+    q: 'Sans ancrage, "pattern": "[0-9]{5}" valide :',
+    opts: ['Seulement "87000"', 'Toute chaîne contenant 5 chiffres consécutifs (ex. "x87000y")', 'Rien sans maxLength', 'Toute chaîne de 5 caractères'],
+    a: 1,
+    exp: 'En ECMA-262, pattern cherche une correspondance partielle. Il faut ^ et $ pour exiger la chaîne entière.'
+  },
+  {
+    q: '{"type": "number", "exclusiveMinimum": 0, "maximum": 20, "multipleOf": 0.5} — que vaut 0 ?',
+    opts: ['Valide', 'Rejeté (exclusiveMinimum)', 'Rejeté (maximum)', 'Rejeté (multipleOf)'],
+    a: 1,
+    exp: 'exclusiveMinimum: 0 rejette 0 (borne exclusive). 20.25 serait rejeté par multipleOf, 21 par maximum.'
+  },
+  {
+    q: 'Un document XML mal formé est :',
+    opts: ['Partiellement analysé', 'Rejeté en bloc', 'Corrigé automatiquement', 'Validé quand même'],
+    a: 1,
+    exp: 'Pas de mode dégradé : un document mal formé est rejeté en bloc, contrairement à HTML.'
+  },
+  {
+    q: 'Bien formé vs valide : quelle phrase est correcte ?',
+    opts: ['Valide implique bien formé', 'Bien formé implique valide', 'Les deux sont équivalents', 'Ce sont des synonymes de DTD'],
+    a: 0,
+    exp: 'La validation (XSD/DTD) suppose d\'abord la bonne formation : valide ⇒ bien formé, mais l\'inverse est faux.'
+  },
+  {
+    q: 'Dans &lt;commande xmlns="https://exemple.fr/ns/vente" id="CMD-1"&gt;, à quel namespace appartient id ?',
+    opts: ['À celui par défaut', 'À aucun namespace', 'À un namespace implicite', 'Au namespace XSD'],
+    a: 1,
+    exp: 'Le namespace par défaut s\'applique aux éléments non préfixés, jamais aux attributs non préfixés.'
+  },
+  {
+    q: 'À quoi sert l\'URI d\'un namespace ?',
+    opts: ['À télécharger le vocabulaire', 'À identifier globalement le vocabulaire', 'À valider le document', 'À définir l\'encodage'],
+    a: 1,
+    exp: 'L\'URI est un identifiant : rien n\'est téléchargé, il n\'a pas à être résolvable. L\'égalité se fait sur (URI, nom local).'
+  },
+  {
+    q: '{"type": ["string", "null"]} valide :',
+    opts: ['"abc" et null', 'Seulement null', '"abc" seulement', 'Tout sauf les nombres'],
+    a: 0,
+    exp: 'type accepte un tableau d\'alternatives : c\'est la façon idiomatique de rendre un champ nullable.'
+  },
+  {
+    q: 'Quel dialecte JSON Schema est celui d\'OpenAPI 3.1 ?',
+    opts: ['draft-04', 'draft-07', '2019-09', '2020-12'],
+    a: 3,
+    exp: '2020-12 (prefixItems, $dynamicRef) est le dialecte d\'OpenAPI 3.1 et celui du cours.'
+  },
+  {
+    q: 'Que fait {"uniqueItems": true} ?',
+    opts: ['Vérifie les doublons par égalité profonde', 'Trie le tableau', 'Vérifie la taille', 'Interdit null'],
+    a: 0,
+    exp: 'uniqueItems interdit les doublons, avec comparaison structurelle (égalité profonde), pas une simple comparaison de référence.'
+  },
+  {
+    q: 'CDATA sert à :',
+    opts: ['Définir un encodage', 'Embarquer du texte non analysé', 'Créer un commentaire', 'Déclarer un namespace'],
+    a: 1,
+    exp: 'CDATA (&lt;![CDATA[ ... ]]&gt;) contient du texte brut non analysé : pratique pour du code ou du HTML embarqué.'
+  },
+  {
+    q: 'Deux documents XML utilisent des préfixes différents (biblio: vs bk:) mais les mêmes URI. Ils sont :',
+    opts: ['Différents', 'Équivalents', 'Invalides', 'Incomparables'],
+    a: 1,
+    exp: 'Le préfixe est un alias local : seul l\'URI compte pour l\'égalité. Deux préfixes ≠ deux namespaces.'
+  },
+  {
+    q: 'Quel est le premier réflexe face à une entrée externe ?',
+    opts: ['La convertir', 'La logger', 'La borner (maxLength, maxItems, min/max)', 'La mettre en cache'],
+    a: 2,
+    exp: 'Des chaînes, tableaux ou nombres sans bornes sont des erreurs latentes et des vecteurs de ReDoS / DoS.'
+  }
+];
+let qState = quiz.map(() => 0); // 0 = pas répondu, 1 = correct, -1 = faux
+let score = 0;
+
+function renderQuiz() {
+  const box = document.getElementById('quizBox');
+  const answered = card => qState[card] !== 0;
+  quiz.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'q';
+    let opts = '';
+    item.opts.forEach((o, j) => {
+      let cls = 'opt';
+      if (answered(i)) {
+        cls += ' done';
+        if (j === item.a) cls += ' correct';
+        else if (qState[i] === -1 && j === qState[i].sel) cls += ' wrong';
+      }
+      opts += `<div class="${cls}" data-i="${i}" data-j="${j}">${String.fromCharCode(65+j)}. ${o}</div>`;
+    });
+    div.innerHTML = `<div class="stem">${i+1}. ${item.q}</div><div class="opts">${opts}</div><div class="explain" id="exp-${i}">💡 ${item.exp}</div>`;
+    box.appendChild(div);
+  });
+  box.querySelectorAll('.opt').forEach(el => {
+    el.addEventListener('click', () => {
+      const i = +el.dataset.i, j = +el.dataset.j;
+      if (qState[i] !== 0) return;
+      const correct = j === quiz[i].a;
+      qState[i] = correct ? 1 : { sel: j };
+      el.classList.add('done', correct ? 'correct' : 'wrong');
+      document.getElementById('exp-' + i).classList.add('show');
+      if (correct) { score++; }
+      updateQuizStats();
+    });
+  });
+  updateQuizStats();
+}
+function updateQuizStats() {
+  const doneCt = qState.filter(x => x !== 0).length;
+  document.getElementById('quizCount').textContent = doneCt + '/' + quiz.length;
+  document.getElementById('quizBar').style.width = (doneCt / quiz.length * 100) + '%';
+  document.getElementById('quizScore').textContent = 'Score : ' + score;
+  document.getElementById('quizReset').style.display = doneCt === quiz.length ? 'inline-block' : 'none';
+}
+document.getElementById('quizReset').addEventListener('click', () => {
+  qState = quiz.map(() => 0); score = 0;
+  document.getElementById('quizBox').innerHTML = '';
+  renderQuiz();
+});
+renderQuiz();
+
+/* ---------- Flashcards ---------- */
+const cards = [
+  ['JSON Schema, 3 rôles ?', 'Validation · Documentation · Génération'],
+  ['properties vs required', 'properties décrit les clés, required impose leur présence (pas leur nullité)'],
+  ['additionalProperties défaut ?', 'true — schéma ouvert. false = schéma fermé (anti mass assignment)'],
+  ['Pattern : ancrer ?', 'Oui — ^ et $, sinon correspondance partielle ("x87000y" passe)'],
+  ['integer : type JSON ?', 'Non — contrainte de valeur ajoutée par JSON Schema (1.0 accepté)'],
+  ['Bien formé vs valide ?', 'Bien formé = syntaxe XML. Valide = conforme à un schéma. Valide ⇒ bien formé'],
+  ['namespace par défaut : attributs ?', 'Jamais — les attributs non préfixés n\'appartiennent à aucun namespace'],
+  ['URI d\'un namespace ?', 'Identifiant global du vocabulaire — rien n\'est téléchargé, pas besoin d\'être résolvable'],
+  ['Attribut ou élément ?', 'L\'attribut qualifie (métadonnée atomique), l\'élément contient (structuré, répétable)'],
+  ['5 entités XML ?', '&lt; &gt; &amp; &quot; &apos; — < et & toujours interdits en texte'],
+  ['2020-12 marque quoi ?', 'prefixItems, $dynamicRef — dialecte d\'OpenAPI 3.1'],
+  ['Validation aux frontières ?', 'API, files, fichiers — échouer tôt et explicitement, loin du code métier'],
+  ['maxLength / maxItems ?', 'Borner toute entrée externe : protection ReDoS / DoS'],
+  ['const sert à ?', 'Discriminant de type dans les unions oneOf (comparaison profonde)'],
+  ['XML : un document est ?', 'Un arbre — un seul parent par nœud, une seule racine'],
+  ['Préfixes différents, même URI ?', 'Documents équivalents — seul l\'URI compte pour l\'égalité'],
+];
+const grid = document.getElementById('fcGrid');
+cards.forEach(([front, back]) => {
+  const fc = document.createElement('div');
+  fc.className = 'fc';
+  fc.innerHTML = `<div class="fc-inner">
+    <div class="fc-face fc-front">${front}</div>
+    <div class="fc-face fc-back">${back}<br><small>— cliquer pour retourner —</small></div>
+  </div>`;
+  fc.addEventListener('click', () => fc.classList.toggle('flipped'));
+  grid.appendChild(fc);
+});
+</script>
+</body>
+</html>
