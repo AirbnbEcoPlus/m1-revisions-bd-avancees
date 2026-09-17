@@ -99,6 +99,7 @@
     <button data-page="quiz">🎯 Quiz</button>
     <button data-page="flash">🃏 Flashcards</button>
     <button data-page="cours-avance">🧠 Cours avancé</button>
+    <button data-page="expert">🔥 Parcours expert</button>
     <button data-page="outils">🛠️ Analyseurs</button>
     <button data-page="exercices">✍️ Exercices</button>
   </nav>
@@ -519,6 +520,61 @@ print(doc.xpath("//c:ligne", namespaces={"c":"https://exemple.fr/ns/vente"}))</c
 <div class="card exercise"><h3>6 — XSD</h3><p>Quelle combinaison autorise 1 à 5 lignes ?</p><button class="btn ghost reveal">Voir la correction</button><div class="answer"><code class="inline">minOccurs="1" maxOccurs="5"</code>. Défaut des deux : 1.</div></div>
 <div class="card exercise"><h3>7 — sécurité XML</h3><p>Quelle configuration générale pour un parseur exposé à Internet ?</p><button class="btn ghost reveal">Voir la correction</button><div class="answer">Désactiver entités externes, réseau, expansion non bornée ; limiter taille/profondeur ; gérer les erreurs.</div></div>
 <div class="card exercise"><h3>8 — composition</h3><p>Quand choisir <code class="inline">oneOf</code> plutôt que <code class="inline">anyOf</code> ?</p><button class="btn ghost reveal">Voir la correction</button><div class="answer"><code class="inline">oneOf</code> exige exactement une branche valide ; idéal pour variantes exclusives avec const discriminant.</div></div>
+</section>
+
+<!-- ======================= PARCOURS EXPERT ======================= -->
+<section class="page" id="page-expert">
+<h2>Parcours expert — mode examen / architecture</h2>
+<div class="card err"><p><strong>Règle :</strong> ici, connaître le mot-clé ne suffit plus. Pour chaque cas, tu dois distinguer parsing, évaluation du schéma, cohérence métier et menace de sécurité. Les corrections sont masquées.</p></div>
+
+<h3>1. Sémantique JSON Schema 2020-12 : évaluations et composition</h3>
+<p>Les mots-clés de validation ne jouent pas tous le même rôle. Un <strong>applicator</strong> (par exemple <code class="inline">allOf</code>, <code class="inline">if</code>, <code class="inline">properties</code>) applique des sous-schémas et peut produire des annotations. En 2020-12, <code class="inline">unevaluatedProperties</code> exploite les propriétés évaluées par les branches applicables, contrairement à <code class="inline">additionalProperties</code> qui ne raisonne que localement dans son emplacement.</p>
+<pre><code>{
+  "type": "object",
+  "properties": {"kind": {"enum": ["student", "teacher"]}},
+  "required": ["kind"],
+  "oneOf": [
+    {"properties": {"kind": {"const": "student"}, "level": {"enum": ["L1", "L2", "M1"]}}, "required": ["level"]},
+    {"properties": {"kind": {"const": "teacher"}, "department": {"type": "string"}}, "required": ["department"]}
+  ],
+  "unevaluatedProperties": false
+}</code></pre>
+<p class="tip">Piège : mettre <code class="inline">additionalProperties:false</code> dans le schéma racine avant les branches peut rejeter <code class="inline">level</code> et <code class="inline">department</code> avant que la composition ne les ait évaluées. Ici, <code class="inline">unevaluatedProperties:false</code> est le choix cohérent.</p>
+
+<h3>2. Récursivité, tuples et contraintes de tableaux</h3>
+<pre><code>{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {"node": {"type":"object", "properties": {
+    "value": {"type":"string"}, "children": {"type":"array", "items":{"$ref":"#/$defs/node"}}
+  }, "required":["value"], "unevaluatedProperties":false}},
+  "$ref":"#/$defs/node"
+}</code></pre>
+<ul><li><code class="inline">prefixItems</code> décrit un tuple positionnel ; <code class="inline">items</code> contrôle les éléments restants.</li><li><code class="inline">contains</code> impose la présence d’éléments correspondant à un sous-schéma ; avec <code class="inline">minContains</code>, on exprime “au moins n”.</li><li>Une récursion doit être bornée côté application : profondeur, taille totale et nombre de nœuds restent des limites opérationnelles.</li></ul>
+
+<h3>3. XSD : namespaces, composition et identité</h3>
+<pre><code>&lt;xs:unique name="uniqueProductSerial"&gt;
+  &lt;xs:selector xpath="catalog/product"/&gt;
+  &lt;xs:field xpath="@serial"/&gt;
+&lt;/xs:unique&gt;
+&lt;xs:keyref name="orderProductExists" refer="productKey"&gt;
+  &lt;xs:selector xpath="order/product"/&gt;
+  &lt;xs:field xpath="@serial"/&gt;
+&lt;/xs:keyref&gt;</code></pre>
+<p><strong>Lecture d’examen :</strong> <code class="inline">unique</code> interdit les doublons mais n’impose pas forcément la présence ; <code class="inline">key</code> impose une valeur existante et unique ; <code class="inline">keyref</code> impose une référence vers une clé déclarée. Les XPath des identity constraints sont relatifs au contexte de l’élément qui porte la contrainte.</p>
+<p>Avec <code class="inline">elementFormDefault="unqualified"</code>, les éléments locaux ne sont pas dans le namespace cible. Si un namespace par défaut est hérité dans le document, il faut parfois écrire <code class="inline">xmlns=""</code> pour réinitialiser la portée. Les attributs non préfixés, eux, restent sans namespace.</p>
+
+<h3>4. XPath namespace-aware et sécurité</h3>
+<pre><code>ns = {"c": "https://exemple.fr/commande"}
+doc.xpath("/c:commande/c:lignes/c:ligne[@quantite &gt; 10]", namespaces=ns)
+doc.xpath("count(//c:ligne)", namespaces=ns)</code></pre>
+<p>Un XPath ne “voit” pas un élément par son nom local si celui-ci est namespace-qualified. En Python, fournir explicitement le mapping préfixe → URI. Pour XML hostile : désactiver les entités externes, le réseau et les résolutions DTD, imposer des limites de taille/profondeur et traiter les erreurs comme des rejets de frontière.</p>
+
+<div class="card exercise"><h3>Cas A — oneOf ou anyOf ?</h3><p>Un paiement contient <code class="inline">method:"card"</code>, <code class="inline">last_digits</code> et <code class="inline">iban</code>. Les deux branches autorisent leurs propriétés connues mais n’interdisent pas les propriétés inconnues. Pourquoi ce payload peut-il passer avec <code class="inline">anyOf</code> ? Quelle correction robuste proposes-tu ?</p><button class="btn ghost reveal">Voir le corrigé</button><div class="answer">Avec <code class="inline">anyOf</code>, une seule branche valide suffit : la branche carte peut ignorer iban si elle n’est pas fermée. Utiliser <code class="inline">oneOf</code> avec discriminant <code class="inline">const</code> et fermer chaque branche (<code class="inline">additionalProperties:false</code>), ou composer soigneusement avec <code class="inline">unevaluatedProperties:false</code>.</div></div>
+<div class="card exercise"><h3>Cas B — XSD namespace</h3><p>La racine porte <code class="inline">xmlns="urn:catalogue"</code>. Un XSD client déclare <code class="inline">elementFormDefault="unqualified"</code>. Pourquoi les éléments locaux <code class="inline">nom</code> et <code class="inline">email</code> peuvent-ils devenir invalides ?</p><button class="btn ghost reveal">Voir le corrigé</button><div class="answer">Ils héritent du namespace par défaut du document alors que le schéma attend des éléments locaux sans namespace. Il faut réinitialiser la portée sur l’élément client avec <code class="inline">xmlns=""</code> (sans changer la bonne formation XML).</div></div>
+<div class="card exercise"><h3>Cas C — schéma vs métier</h3><p>Le schéma impose <code class="inline">total</code> positif et une liste d’articles valide. Peut-il garantir que <code class="inline">total = Σ(quantity × unit_price)</code> et que chaque produit existe au catalogue ?</p><button class="btn ghost reveal">Voir le corrigé</button><div class="answer">Pas raisonnablement avec JSON Schema seul : il valide surtout la forme. La somme et l’existence en base relèvent du service métier/transactionnel, après validation syntaxique et structurelle.</div></div>
+<div class="card exercise"><h3>Cas D — threat model</h3><p>Un endpoint accepte un XML de 40 Mo contenant une DTD externe et un JSON avec <code class="inline">isAdmin:true</code>. Donne quatre contrôles prioritaires.</p><button class="btn ghost reveal">Voir le corrigé</button><div class="answer">Taille et profondeur bornées ; entités externes/DTD/réseau désactivés ; parseur durci contre expansion et SSRF ; schéma JSON fermé par allowlist, validation avant mapping objet, puis autorisation métier indépendante.</div></div>
+
+<div class="card warn"><h3>Checklist de copie</h3><ol><li>Quel dialecte et quel namespace ?</li><li>Quelle frontière valide quoi ?</li><li>Quelles propriétés/éléments sont réellement obligatoires ?</li><li>Les unions sont-elles exclusives et fermées ?</li><li>Les limites DoS et les erreurs d’outil sont-elles explicites ?</li><li>Quelles règles restent métier et transactionnelles ?</li></ol></div>
 </section>
 
 <div class="footnote">Fiche de révision M1 — BD avancées · JSON Schema &amp; XML/XSD · générée le 17/09/2026 📝</div>
