@@ -77,6 +77,12 @@
   .btn.ghost { background: var(--panel2); border: 1px solid var(--border); color: var(--text); }
   .btn:hover { filter: brightness(1.15); }
   .footnote { margin-top: 30px; color: var(--muted); font-size: .8rem; text-align: center; }
+  .toolbox{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  textarea{width:100%;min-height:190px;resize:vertical;background:#0b0d13;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px;font:.9rem Consolas,monospace}
+  .result{min-height:70px;padding:14px;border-radius:10px;background:#0b0d13;border:1px solid var(--border);white-space:pre-wrap;overflow:auto;line-height:1.5}.result.good{border-color:var(--ok);color:var(--ok)}.result.bad{border-color:var(--err);color:#ff9a9f}
+  .exercise{border-left:4px solid var(--accent)}.exercise .answer{display:none;margin-top:12px;padding:12px;background:var(--panel2);border-radius:9px;line-height:1.55}.exercise .answer.show{display:block}
+  .progress{height:10px;background:var(--panel2);border-radius:5px;overflow:hidden;margin:10px 0}.progress div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;transition:.3s}.kpi{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.kpi span{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 13px}@media(max-width:700px){.toolbox{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -92,6 +98,9 @@
     <button data-page="pièges">⚠️ Pièges</button>
     <button data-page="quiz">🎯 Quiz</button>
     <button data-page="flash">🃏 Flashcards</button>
+    <button data-page="cours-avance">🧠 Cours avancé</button>
+    <button data-page="outils">🛠️ Analyseurs</button>
+    <button data-page="exercices">✍️ Exercices</button>
   </nav>
 </header>
 
@@ -440,6 +449,78 @@ if (a &lt; b &amp;&amp; c &gt; d) { alert("brut, non analysé"); }
   <div class="fc-grid" id="fcGrid"></div>
 </section>
 
+<!-- ======================= COURS AVANCE ======================= -->
+<section class="page" id="page-cours-avance">
+<h2>Cours avancé — les notions qui font la différence</h2>
+<div class="card ok"><p><strong>Méthode d'examen :</strong> identifier le format, séparer syntaxe et sémantique, expliciter le contrat, puis citer validation, limites et sécurité.</p></div>
+<h3>JSON Schema : composition et réutilisation</h3>
+<p><code class="inline">$defs</code> contient des définitions locales réutilisables avec <code class="inline">$ref</code>. <code class="inline">allOf</code> impose toutes les branches, <code class="inline">anyOf</code> au moins une, et <code class="inline">oneOf</code> exactement une. Utilise <code class="inline">const</code> comme discriminant pour des variantes exclusives.</p>
+<pre><code>{
+  "$defs": { "Identifiant": { "type":"string", "pattern":"^[A-Z]{2}-[0-9]+$" } },
+  "type":"object", "properties": { "id": { "$ref":"#/$defs/Identifiant" } }
+}</code></pre>
+<h3>Conditions, formats et objets extensibles</h3>
+<pre><code>{
+  "if": { "properties": { "pays": { "const":"FR" } } },
+  "then": { "required":["numeroTVA"] },
+  "else": { "required":["identifiantFiscal"] }
+}</code></pre>
+<p><code class="inline">additionalProperties</code> s'applique localement. En 2019-09/2020-12, <code class="inline">unevaluatedProperties</code> est utile après composition pour refuser les propriétés restées non évaluées. <code class="inline">format</code> documente ou vérifie selon le validateur (<code class="inline">email</code>, <code class="inline">date-time</code>, <code class="inline">uri</code>) : son support peut être configurable.</p>
+<h3>XSD : types, cardinalités et ordre</h3>
+<pre><code>&lt;xs:element name="ligne" minOccurs="1" maxOccurs="unbounded"&gt;
+  &lt;xs:complexType&gt;
+    &lt;xs:sequence&gt;
+      &lt;xs:element name="sku" type="xs:string"/&gt;
+      &lt;xs:element name="quantite" type="xs:positiveInteger"/&gt;
+    &lt;/xs:sequence&gt;
+  &lt;/xs:complexType&gt;
+&lt;/xs:element&gt;</code></pre>
+<ul><li><code class="inline">simpleType</code> : valeur sans éléments enfants ; <code class="inline">complexType</code> : structure, attributs et contenu.</li><li><code class="inline">sequence</code> impose l'ordre ; <code class="inline">choice</code> choisit une branche ; <code class="inline">all</code> autorise chaque élément au plus une fois, dans n'importe quel ordre.</li><li><code class="inline">minOccurs/maxOccurs</code> expriment les cardinalités (défaut : 1).</li><li>Facettes : <code class="inline">minLength</code>, <code class="inline">maxLength</code>, <code class="inline">pattern</code>, <code class="inline">enumeration</code>, <code class="inline">minInclusive</code>, <code class="inline">totalDigits</code>.</li><li><code class="inline">extension</code> ajoute des champs à un type de base ; <code class="inline">restriction</code> le resserre.</li></ul>
+<h3>DTD, XSD, XPath et outils Python</h3>
+<p>DTD est ancien et peu typé ; XSD est XML, typé, namespace-aware et exprime des contraintes riches. XPath navigue l'arbre avec des chemins et prédicats : <code class="inline">/commande/ligne[@sku='ABC-123']</code>, <code class="inline">count(//ligne)</code>, <code class="inline">ancestor::commande</code>, <code class="inline">following-sibling::ligne</code>.</p>
+<pre><code>from lxml import etree
+parser = etree.XMLParser(resolve_entities=False, no_network=True)
+doc = etree.parse("commande.xml", parser)
+print(doc.xpath("//c:ligne", namespaces={"c":"https://exemple.fr/ns/vente"}))</code></pre>
+<h3>Sécurité à savoir expliquer</h3>
+<ul><li><strong>XXE</strong> : entités externes pouvant lire des fichiers ou appeler le réseau. Désactiver entités et réseau.</li><li><strong>Billion Laughs</strong> : expansion d'entités qui sature mémoire/CPU.</li><li><strong>Mass assignment</strong> : champs JSON inattendus injectés dans un objet métier. Allowlist + schéma fermé.</li><li><strong>ReDoS / DoS</strong> : regex simples et limites de taille, profondeur, tableaux, propriétés et ressources.</li></ul>
+<div class="card warn"><p><strong>OpenAPI 3.1</strong> s'appuie sur JSON Schema 2020-12 : le contrat peut documenter l'API et piloter la validation, mais il faut vérifier le support de l'outil.</p></div>
+</section>
+
+<!-- ======================= OUTILS ======================= -->
+<section class="page" id="page-outils">
+<h2>Laboratoire — analyseurs dans ton navigateur</h2>
+<p>Analyse locale : rien n'est envoyé. Le parsing syntaxique ne remplace pas une validation JSON Schema ou XSD complète.</p>
+<div class="toolbox">
+<div class="card"><h3>Analyseur JSON</h3><textarea id="jsonInput">{
+  "id": 42,
+  "nom": "Durand",
+  "actif": true,
+  "tags": ["m1", "json"]
+}</textarea><button class="btn" id="parseJson">Analyser JSON</button><div id="jsonResult" class="result">En attente…</div></div>
+<div class="card"><h3>Analyseur XML</h3><textarea id="xmlInput">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;commande id="CMD-1"&gt;
+  &lt;client&gt;Durand&lt;/client&gt;
+  &lt;ligne sku="ABC-123" quantite="2"/&gt;
+&lt;/commande&gt;</textarea><button class="btn" id="parseXml">Analyser XML</button><div id="xmlResult" class="result">En attente…</div></div>
+</div>
+<div class="card"><h3>Mini-validateur JSON Schema pédagogique</h3><p>Types, required, propriétés, additionalProperties, longueurs et bornes numériques.</p><div class="toolbox"><textarea id="instanceInput">{"nom":"Ada","age":36}</textarea><textarea id="schemaInput">{"type":"object","properties":{"nom":{"type":"string","minLength":1},"age":{"type":"integer","minimum":0,"maximum":120}},"required":["nom"],"additionalProperties":false}</textarea></div><button class="btn" id="validateSchema">Valider l'instance</button><div id="schemaResult" class="result">En attente…</div></div>
+<div class="card"><h3>Les trois niveaux</h3><ul><li><strong>Parsing</strong> : texte lisible ?</li><li><strong>Validation</strong> : conforme au contrat ?</li><li><strong>Sémantique métier</strong> : cohérent pour l'application ?</li></ul></div>
+</section>
+
+<!-- ======================= EXERCICES ======================= -->
+<section class="page" id="page-exercices">
+<h2>Exercices guidés</h2><p>Essaie avant d'ouvrir la correction : justifie, ne récite pas.</p><div class="kpi"><span>✅ Corrections : <b id="exerciseScore">0</b>/8</span><span>🎓 Niveau : <b id="exerciseLevel">Débutant</b></span></div><div class="progress"><div id="exerciseBar"></div></div>
+<div class="card exercise"><h3>1 — properties ou required ?</h3><p>Pourquoi <code class="inline">{}</code> est-il valide avec properties seul ?</p><button class="btn ghost reveal">Voir la correction</button><div class="answer">properties décrit une clé lorsqu'elle est présente. Ajouter <code class="inline">required: ["nom"]</code> pour imposer sa présence.</div></div>
+<div class="card exercise"><h3>2 — schéma fermé</h3><p>Quel risque avec <code class="inline">isAdmin</code> inattendu dans un utilisateur ?</p><button class="btn ghost reveal">Voir la correction</button><div class="answer">Mass assignment : un champ inattendu peut modifier un privilège. Allowlist + <code class="inline">additionalProperties: false</code>.</div></div>
+<div class="card exercise"><h3>3 — regex</h3><p>Corrige <code class="inline">[0-9]{5}</code> pour un code postal exact.</p><button class="btn ghost reveal">Voir la correction</button><div class="answer"><code class="inline">^[0-9]{5}$</code> avec minLength et maxLength à 5.</div></div>
+<div class="card exercise"><h3>4 — XML</h3><p><code class="inline">&lt;a&gt;&lt;b&gt;texte&lt;/a&gt;&lt;/b&gt;</code> est-il bien formé ?</p><button class="btn ghost reveal">Voir la correction</button><div class="answer">Non, imbrication croisée. Fermer b avant a.</div></div>
+<div class="card exercise"><h3>5 — namespace</h3><p>Dans <code class="inline">&lt;c:commande xmlns:c="urn:vente" id="1"/&gt;</code>, namespace de id ?</p><button class="btn ghost reveal">Voir la correction</button><div class="answer">Aucun : un attribut non préfixé n'hérite jamais du namespace par défaut.</div></div>
+<div class="card exercise"><h3>6 — XSD</h3><p>Quelle combinaison autorise 1 à 5 lignes ?</p><button class="btn ghost reveal">Voir la correction</button><div class="answer"><code class="inline">minOccurs="1" maxOccurs="5"</code>. Défaut des deux : 1.</div></div>
+<div class="card exercise"><h3>7 — sécurité XML</h3><p>Quelle configuration générale pour un parseur exposé à Internet ?</p><button class="btn ghost reveal">Voir la correction</button><div class="answer">Désactiver entités externes, réseau, expansion non bornée ; limiter taille/profondeur ; gérer les erreurs.</div></div>
+<div class="card exercise"><h3>8 — composition</h3><p>Quand choisir <code class="inline">oneOf</code> plutôt que <code class="inline">anyOf</code> ?</p><button class="btn ghost reveal">Voir la correction</button><div class="answer"><code class="inline">oneOf</code> exige exactement une branche valide ; idéal pour variantes exclusives avec const discriminant.</div></div>
+</section>
+
 <div class="footnote">Fiche de révision M1 — BD avancées · JSON Schema &amp; XML/XSD · générée le 17/09/2026 📝</div>
 </main>
 
@@ -634,6 +715,16 @@ cards.forEach(([front, back]) => {
   fc.addEventListener('click', () => fc.classList.toggle('flipped'));
   grid.appendChild(fc);
 });
+/* ---------- Local analyzers ---------- */
+function showResult(id, ok, text){const e=document.getElementById(id);e.className='result '+(ok?'good':'bad');e.textContent=text}
+document.getElementById('parseJson').onclick=()=>{try{const v=JSON.parse(document.getElementById('jsonInput').value);const t=Array.isArray(v)?'array':v===null?'null':typeof v;showResult('jsonResult',true,'✓ JSON valide\nType racine : '+t+'\nClés/éléments : '+(v&&typeof v==='object'?Object.keys(v).length:0))}catch(e){showResult('jsonResult',false,'✗ JSON invalide\n'+e.message)}};
+document.getElementById('parseXml').onclick=()=>{const text=document.getElementById('xmlInput').value,doc=new DOMParser().parseFromString(text,'application/xml'),err=doc.querySelector('parsererror');if(err)showResult('xmlResult',false,'✗ XML mal formé\n'+err.textContent.replace(/\s+/g,' ').trim());else showResult('xmlResult',true,'✓ XML bien formé\nRacine : <'+doc.documentElement.nodeName+'>\nÉléments : '+doc.getElementsByTagName('*').length)};
+function typeOk(v,t){return t==='object'?v!==null&&!Array.isArray(v)&&typeof v==='object':t==='array'?Array.isArray(v):t==='null'?v===null:t==='integer'?typeof v==='number'&&Number.isInteger(v):typeof v===t}
+function validate(v,s,path='$',errors=[]){if(s.type&&!((Array.isArray(s.type)&&s.type.some(t=>typeOk(v,t)))||(!Array.isArray(s.type)&&typeOk(v,s.type))))errors.push(path+': type attendu '+s.type);if(typeof v==='string'){if(s.minLength!=null&&v.length<s.minLength)errors.push(path+': minLength');if(s.maxLength!=null&&v.length>s.maxLength)errors.push(path+': maxLength');if(s.pattern&&!(new RegExp(s.pattern).test(v)))errors.push(path+': pattern')}if(typeof v==='number'){if(s.minimum!=null&&v<s.minimum)errors.push(path+': minimum');if(s.maximum!=null&&v>s.maximum)errors.push(path+': maximum')}if(v&&typeof v==='object'&&!Array.isArray(v)){(s.required||[]).forEach(k=>{if(!(k in v))errors.push(path+': propriété requise '+k)});Object.keys(v).forEach(k=>{if(s.properties&&s.properties[k])validate(v[k],s.properties[k],path+'.'+k,errors);else if(s.additionalProperties===false)errors.push(path+': propriété inconnue '+k)})}return errors}
+document.getElementById('validateSchema').onclick=()=>{try{const v=JSON.parse(document.getElementById('instanceInput').value),s=JSON.parse(document.getElementById('schemaInput').value),e=validate(v,s);showResult('schemaResult',!e.length,e.length?'✗ Instance non conforme\n'+e.join('\n'):'✓ Instance conforme aux contraintes prises en charge')}catch(e){showResult('schemaResult',false,'✗ JSON invalide dans l’instance ou le schéma\n'+e.message)}};
+/* ---------- Exercises ---------- */
+let revealed=0;document.querySelectorAll('.reveal').forEach(b=>b.onclick=()=>{const a=b.nextElementSibling;if(!a.classList.contains('show')){a.classList.add('show');revealed++;document.getElementById('exerciseScore').textContent=revealed;document.getElementById('exerciseBar').style.width=(revealed/8*100)+'%';document.getElementById('exerciseLevel').textContent=revealed<3?'Débutant':revealed<6?'Intermédiaire':revealed<8?'Avancé':'Validateur de contrats'}});
+
 </script>
 </body>
 </html>

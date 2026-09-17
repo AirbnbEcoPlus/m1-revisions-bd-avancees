@@ -11,3 +11,8 @@ Site interactif de révision sur JSON Schema, XML, XSD et les espaces de noms.
 - fonctionnement hors ligne, sans dépendance.
 
 Ouvrir `index.html` dans un navigateur.
+
+## Site en ligne
+
+Une version hébergée est disponible via GitHub Pages :
+<https://airbnbecoplus.github.io/m1-revisions-bd-avancees/>
